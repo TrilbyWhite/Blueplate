@@ -67,7 +67,18 @@ A PKGBUILD for archlinux will be coming soon
 Known Bugs & Todo List
 ----------------------
 
+### Bugs
+
 None - bugs all currently reside in the 'unknown' category.  Let me know when
 you find them.
 
+### Todo
 
+1. Test conditional compiling of modules
+1. Write command line help function
+1. Write man page
+
+See Also
+--------
+
+[Archlinux.org forum thread](https://bbs.archlinux.org/viewtopic.php?id=191842)

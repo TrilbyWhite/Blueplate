@@ -1,13 +1,14 @@
 
 PROG     =  blueplate
+MODULES  ?= desktop mail
 VER      =  0.1
 CC       ?= gcc
-DEFS     =  -DPROGRAM_NAME=${PROG} -DPROGRAM_VER=${VER}
-DEPS     = x11
+MODDEFS  =  $(foreach mod, ${MODULES}, -Dmodule_${mod})
+DEFS     =  -Dprogram_name=${PROG} -Dprogram_ver=${VER} ${MODDEFS}
+DEPS     =  x11
 CFLAGS   += $(shell pkg-config --cflags ${DEPS}) ${DEFS}
 LDLIBS   += $(shell pkg-config --libs ${DEPS}) -lm
 PREFIX   ?= /usr
-MODULES  ?=  mail desktop
 HEADERS  =  config.h blueplate.h
 VPATH    =  src
 

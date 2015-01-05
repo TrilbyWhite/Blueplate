@@ -1,4 +1,4 @@
-
+#ifndef __BLUEPLATE_H__
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,8 +38,12 @@ int init_atoms();
 int embed_window(Window);
 
 /* modules */
+#ifdef module_desktop
 int desktop();
+#endif
+#ifdef module_mail
 int mail();
+#endif
 
-
+#endif /* __BLUEPLATE_H__ */
 

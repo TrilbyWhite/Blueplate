@@ -57,6 +57,10 @@ void sighandler(int sig) {
 	if (sig == SIGTERM) running = False;
 }
 
+void help() {
+printf("Coming soon...\n");
+}
+
 int main(int argc, const char **argv) {
 	running = True;
 	int i, pid, (*child)();
@@ -64,13 +68,16 @@ int main(int argc, const char **argv) {
 	sa.sa_handler = sighandler;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;
-	for (i = 0; i < argc; ++i) {
+	for (i = 1; i < argc; ++i) {
 		child = NULL;
-		if (strncmp(argv[i], "desk", 4) == 0) child = desktop;
+		if (strncmp(argv[i], "help", 4) == 0) help();
+#ifdef module_desktop
+		else if (strncmp(argv[i], "desk", 4) == 0) child = desktop;
+#endif
+#ifdef module_mail
 		else if (strncmp(argv[i], "mail", 4) == 0) child = mail;
-		else {
-			// TODO Show help
-		}
+#endif
+		else fprintf(stderr,"%s: %s: no such module\n", argv[0], argv[i]);
 		if (child && (fork() == 0) ) {
 			setsid();
 			sigaction(SIGTERM, &sa, NULL);

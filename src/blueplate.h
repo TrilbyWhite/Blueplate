@@ -27,10 +27,6 @@ typedef struct Desktop {
 	int status, x, y, w, h;
 } Desktop;
 
-typedef struct Connman {
-	int status, x, y, w, h;
-} Connman;
-
 Display *dpy;
 Window root, tray;
 Bool running;

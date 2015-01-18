@@ -44,6 +44,9 @@ int desktop();
 #ifdef module_mail
 int mail();
 #endif
+#ifdef module_connman
+int connman();
+#endif
 
 #endif /* __BLUEPLATE_H__ */
 

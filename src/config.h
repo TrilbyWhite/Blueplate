@@ -16,9 +16,8 @@ static Desktop desk[] = {
 /* MAIL */
 static MBox box[] = {
 	/* path to maildir,                    color,    0 */
-	//{"/home/USER/mail/ACCOUNT1/INBOX/new", 0x94BBD1, 0},
-	//{"/home/USER/mail/ACCOUNT2/INBOX/new", 0x9498A2, 0},
-	{"/home/andy/sandbox/new", 0x9498A2, 0},
+	{"/home/USER/mail/ACCOUNT1/INBOX/new", 0x94BBD1, 0},
+	{"/home/USER/mail/ACCOUNT2/INBOX/new", 0x9498A2, 0},
 	/* keep a null terminator */
 	{NULL, 0, 0},
 };

@@ -27,6 +27,10 @@ typedef struct Desktop {
 	int status, x, y, w, h;
 } Desktop;
 
+typedef struct Connman {
+	int status, x, y, w, h;
+} Connman;
+
 Display *dpy;
 Window root, tray;
 Bool running;
@@ -43,6 +47,9 @@ int desktop();
 #endif
 #ifdef module_mail
 int mail();
+#endif
+#ifdef module_connman
+int connman();
 #endif
 
 #endif /* __BLUEPLATE_H__ */

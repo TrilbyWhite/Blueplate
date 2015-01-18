@@ -18,8 +18,8 @@ static Desktop desk[] = {
 
 static MBox box[] = {
 	/* path to maildir,                    color,    0 */
-	{"/home/USER/mail/ACCOUNT1/INBOX/new", 0x94BBD1, 0},
-	{"/home/USER/mail/ACCOUNT2/INBOX/new", 0x9498A2, 0},
+	{"/home/jmcclure/mail/umass/INBOX/new", 0x94BBD1, 0},
+	{"/home/jmcclure/mail/mccluresk9/INBOX/new", 0x9498A2, 0},
 	/* keep a null terminator */
 	{NULL, 0, 0},
 };
@@ -31,5 +31,4 @@ static const char mail_icon_data[] = {
 	0x42, 0x42, 0xA2, 0x45, 0x12, 0x48, 0x0A, 0x50,
 	0x06, 0x60, 0xFE, 0x7F, 0x00, 0x00, 0x00, 0x00,
 };
-
 

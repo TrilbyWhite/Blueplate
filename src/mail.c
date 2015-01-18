@@ -1,3 +1,9 @@
+/**********************************************************************\
+* MAIL.C - module for BLUEPLATE
+*
+* Author: Jesse McClure, copyright 2014-2015
+* License: GPLv3
+\**********************************************************************/
 
 #include "blueplate.h"
 #include "config.h"
@@ -37,17 +43,16 @@ static int xlib_init() {
 	wa.backing_store = Always;
 	wa.event_mask = StructureNotifyMask;
 	int i;
-Pixmap pix;
+	Pixmap pix;
 	for (i = 0; box[i].path; ++i) {
-	//	wa.background_pixel = box[i].color;
-pix = XCreatePixmapFromBitmapData(dpy, root,
-	(char *) mail_icon_data, mail_icon_size.x, mail_icon_size.y,
-	box[i].color, background, DefaultDepth(dpy,scr));
-wa.background_pixmap = pix;
-		box[i].win = XCreateWindow(dpy, root, 0, 0, 32, 32, 0,
-				DefaultDepth(dpy,scr), InputOutput, DefaultVisual(dpy, scr),
-				CWBackPixmap | CWBackingStore | CWEventMask, &wa);
-XFreePixmap(dpy, pix);
+	pix = XCreatePixmapFromBitmapData(dpy, root,
+			(char *) mail_icon_data, mail_icon_size.x, mail_icon_size.y,
+			box[i].color, background, DefaultDepth(dpy,scr));
+	wa.background_pixmap = pix;
+	box[i].win = XCreateWindow(dpy, root, 0, 0, 32, 32, 0,
+			DefaultDepth(dpy,scr), InputOutput, DefaultVisual(dpy, scr),
+			CWBackPixmap | CWBackingStore | CWEventMask, &wa);
+	XFreePixmap(dpy, pix);
 	}
 }
 

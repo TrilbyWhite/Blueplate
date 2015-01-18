@@ -1,3 +1,10 @@
+/**********************************************************************\
+* CONNMAN.C - module for BLUEPLATE
+*
+* Author: TODO, copyright 2015
+* License: TODO
+\**********************************************************************/
+
 #include "blueplate.h"
 #include "config.h"
 

@@ -1,3 +1,9 @@
+/**********************************************************************\
+* DESKTOP.C - module for BLUEPLATE
+*
+* Author: Jesse McClure, copyright 2014-2015
+* License: GPLv3
+\**********************************************************************/
 
 #include "blueplate.h"
 #include "config.h"

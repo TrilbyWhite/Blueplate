@@ -1,8 +1,8 @@
 /**********************************************************************\
 * CONNMAN.C - module for BLUEPLATE
 *
-* Author: TODO, copyright 2015
-* License: TODO
+* Author: Andrew J. Bibb, copyright 2015
+* License: GPL3
 \**********************************************************************/
 
 #include "blueplate.h"

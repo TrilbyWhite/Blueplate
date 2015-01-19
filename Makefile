@@ -1,16 +1,16 @@
 
 PROG     =  blueplate
-#MODULES  ?= connman desktop mail
 MODULES  ?= desktop mail
+#MODULES  += connman
 VER      =  0.1
 CC       ?= gcc
 MODDEFS  =  $(foreach mod, ${MODULES}, -Dmodule_${mod})
 DEFS     =  -Dprogram_name=${PROG} -Dprogram_ver=${VER} ${MODDEFS}
-#DEPS     = x11 dbus-1
 DEPS     =  x11
+#DEPS     += dbus-1
 CFLAGS   += $(shell pkg-config --cflags ${DEPS}) ${DEFS}
-#LDLIBS   += $(shell pkg-config --libs ${DEPS}) -lm -lpthread
 LDLIBS   += $(shell pkg-config --libs ${DEPS}) -lm
+#LDLIBS   += -lpthread
 PREFIX   ?= /usr
 HEADERS  =  config.h blueplate.h
 VPATH    =  src

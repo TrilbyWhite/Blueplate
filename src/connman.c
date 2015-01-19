@@ -6,7 +6,7 @@
 \**********************************************************************/
 
 /*
- *  Suggested improvements (from J. McClure AKA "Trilby"):
+ *  Suggested improvements (from J. McClure AKA "Trilby"): (see connman_new.c)
  *
  *  1. Replace the nonblocking read with dbus_connection_read_write_dispatch or
  *     similar function to avoid the "sleep-loop" syndrome.
@@ -14,7 +14,10 @@
  *  3. Use array for gcs and color configs.  Initialization can then be done in
  *     a loop through all possible conditionals allowing easier additions in the
  *     future.
- *  4. Clean up main loop (done: Trilby, 19 Jan 2015)
+ *  4. Consider drawing to pixmap and setting as window background rather than
+ *     drawing directly to the window.  This way the expose event can be ignored
+ *     as backingstore is already set.
+ *  5. Clean up main loop (done: Trilby, 19 Jan 2015)
  */
 
 #include "blueplate.h"

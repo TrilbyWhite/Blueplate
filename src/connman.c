@@ -347,27 +347,11 @@ int connman() {
 	}
 
 	// start event loop
-	while (running && !XNextEvent(dpy, &ev) ) {
-
-	// process X events 
-		switch (ev.type) {
-			case Expose: {   
-				redraw();
-				break;
-			}	// case
-			case ButtonPress: {
-				if (on_click_connman[0] != '\0') { 
-					if (fork() != 0) break;
-					else {
-						execl(on_click_connman[0], on_click_connman[0],  on_click_connman[1], NULL);
-					}	// else
-				}	// if fork() worked
-				break;
-			}	// case
-		}	// switch
-		
-	}	// event loop				
-	
+	while (running && !XNextEvent(dpy, &ev)) {
+		if (ev.type == Expose) redraw();
+		else if (ev.type == ButtonPress && connman_click[0] && fork() == 0)
+			execvp(connman_click[0], (char * const *) connman_click);
+	}
 	xlib_free();
 	return 0;
 }

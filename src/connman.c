@@ -5,6 +5,17 @@
 * License: GPL3
 \**********************************************************************/
 
+/*
+ *  Suggested improvements (from J. McClure AKA "Trilby"):
+ *
+ *  1. Replace the nonblocking read with dbus_connection_read_write_dispatch or
+ *     similar function to avoid the "sleep-loop" syndrome.
+ *  2. Remove the pthread dependence by using DBusWatch and a select loop.
+ *  3. Use array for gcs and color configs.  Initialization can then be done in
+ *     a loop through all possible conditionals allowing easier additions in the
+ *     future.
+ */
+
 #include "blueplate.h"
 #include "config.h"
 

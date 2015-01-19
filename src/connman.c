@@ -14,6 +14,7 @@
  *  3. Use array for gcs and color configs.  Initialization can then be done in
  *     a loop through all possible conditionals allowing easier additions in the
  *     future.
+ *  4. Clean up main loop (done: Trilby, 19 Jan 2015)
  */
 
 #include "blueplate.h"

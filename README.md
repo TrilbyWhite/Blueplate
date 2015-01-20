@@ -36,6 +36,14 @@ detected immediately without having a rapid infinite loop.  A goal for future
 modules will be to find designs that allow for a similar efficiency, though this
 may not be practical for all modules.
 
+
+- **DBusListener:** Conceptually based on the Connman module submitted by
+  Andrew-Bibb.  The Connman module - while functional - doesn't (yet) meet the
+  standards indicated above.  But development with the above goals in mind has
+  lead to the possibility of a more generic dbus-listener.  The progress can be
+  seen in dbus-listener.c.  Anyone fluent in dbus programming is encouraged to
+  send pull requests with a working DBusWatch select loop (the only currently
+  missing puzzle piece).
 - **Weather:** A current conditions indicator, potentially using
   [shaman](https://github.com/HalosGhost/shaman)
 - **CPU Load:**

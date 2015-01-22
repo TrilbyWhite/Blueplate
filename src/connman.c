@@ -214,39 +214,41 @@ void findState(DBusMessageIter* iter)
 	}	while (dbus_message_iter_next (iter));
 }
 
+static DBusHandlerResult monitor_filter_func (DBusConnection* connection, DBusMessage* msg, void *user_data)
+{
+	b_havenewstate = FALSE;	// set or unset in findState()
+	DBusMessageIter iter;
+	
+	printf ("in monitor filter func\n");
+	if (dbus_message_is_signal(msg, "net.connman.Manager", "PropertyChanged")) {
+		// read the parameters
+		dbus_message_iter_init(msg, &iter);
+		findState(&iter);
+		
+		// redraw if new message
+		if (b_havenewstate) redraw();
+		
+		return DBUS_HANDLER_RESULT_HANDLED;
+		}	// if
+	
+	else
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;	
+}
+
 // Function to check the PropertyChanged signal.  This function is run 
 // in a separate thread.  
 void* checkSignal(void* arg)
 {
-	DBusMessage* msg;
-	DBusMessageIter iter;
-	b_havenewstate = FALSE;	// set or unset in findState()
+	DBusHandleMessageFunction filter_func = monitor_filter_func;
 	
-	while (running) {
-		// non blocking read of the next available message
-		dbus_connection_read_write(conn, 0);
-		msg = dbus_connection_pop_message(conn);
-		
-		// if no message sleep for a while before we look again	
-		if (NULL == msg) {
-			usleep(5000);
-			continue;
-		} 
-			
-		// check if the message is a signal from the correct interface and with the correct name
-		if (dbus_message_is_signal(msg, "net.connman.Manager", "PropertyChanged")) {
-			// read the parameters
-			dbus_message_iter_init(msg, &iter);
-			findState(&iter);
-		}	// if
+	if (! dbus_connection_add_filter (conn, filter_func, NULL, NULL)) {
+		fprintf (stderr, "Couldn't add filter\n");
+		exit (1);
+	}
 	
-		// free the message
-		dbus_message_unref(msg);
-		
-		// redraw if new message
-		if (b_havenewstate) redraw();
+	while (dbus_connection_read_write_dispatch(conn, -1))
+	;
 	
-	}	// checkSignal loop
 	
 	return NULL;
 }

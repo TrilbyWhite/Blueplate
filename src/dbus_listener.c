@@ -8,6 +8,9 @@
 /* Note: this is a work-in-progress rewrite of connman.c to address concerns
  * noted in the comments of that file */
 
+// COMPILE as standalone test:
+// gcc -o dbus_listener dbus_listener.c $(pkg-config dbus-1 x11)
+
 #include "blueplate.h"
 #include "config.h"
 #include <dbus/dbus.h>

@@ -8,42 +8,57 @@
 /* Note: this is a work-in-progress rewrite of connman.c to address concerns
  * noted in the comments of that file */
 
+// COMPILE as standalone test:
+// gcc -o dbus_listener dbus_listener.c $(pkg-config dbus-1 x11)
+
 #include "blueplate.h"
 #include "config.h"
 #include <dbus/dbus.h>
 
-typedef struct Listener {
-	const char *name;
-	Window win;
-	DBusWatch *watch;
-	int fd;
-	const char *rule;
-	const char *signal[];
-	const char *icon[];
-	const unsigned long int color[];
-	const char *click[];
-} Listener;
 
-/* config example */
 
-static const char icon_blank[] = {
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-};
 
-static Listener listener[] {
-	{ "connman", "type='signal',interface='net.connman.Manager'", 0, NULL, 0,
-		{ "offline", "idle", "ready", "online", NULL },
-		{ icon_blank, icon_blank, icon_blank, icon_blank },
-		{ 0x000000, 0x888888, 0xFFDD0E, 0x88FF88 },
-		{ "cmst", "--disable-tray-icon", NULL } },
-	{ NULL, NULL, 0, NULL, 0, { NULL }, { NULL }, { 0x000000 }, { NULL } },
-};
 
-/******************/
+/* excerpt from blueplate.c for testing */
+int embed_window(Window embed) {
+	while (!(tray=XGetSelectionOwner(dpy, atom[TrayWin]))) sleep(1);
+	XEvent ev; memset(&ev, 0, sizeof(ev));
+	ev.xclient.type = ClientMessage; ev.xclient.window = tray;
+	ev.xclient.message_type = atom[TrayCmd]; ev.xclient.format = 32;
+	ev.xclient.data.l[0] = CurrentTime; ev.xclient.data.l[2] = embed;
+	XSendEvent(dpy, tray, False, NoEventMask, &ev);
+	XSync(dpy, False);
+/*** not used yet:
+	Window igw;
+	int igd;
+	XGetGeometry(dpy, embed, &igw, &igd, &igd, &width, &height, &igd, &igd);
+*/
+	return 0;
+}
 
+int init_atoms() {
+	const char *atom_name[AtomNum] = {
+		[WinList] = "_NET_CLIENT_LIST",
+		[NoDesks] = "_NET_NUMBER_OF_DESKTOPS",
+		[CurDesk] = "_NET_CURRENT_DESKTOP",
+		[WinDesk] = "_NET_WM_DESKTOP",
+		[IconGeo] = "_NET_WM_ICON_GEOMETRY",
+		[TrayWin] = "_NET_SYSTEM_TRAY_S0",
+		[TrayCmd] = "_NET_SYSTEM_TRAY_OPCODE",
+	};
+	int i;
+	for (i = 0; i < AtomNum; ++i) atom[i] = XInternAtom(dpy, atom_name[i], False);
+	return 0;
+}
+/* end excerpt from blueplate.c for testing */
+
+
+static int wfd = 0;
+static Window win;
+static DBusWatch *w;
+//const char *rule = "eavesdrop=true,type='signal'";
+//const char *rule = "eavesdrop=true";
+const char *rule = "eavesdrop=true,type='signal',interface='net.connman.Manager'";
 
 static int xlib_init() {
 	if (!(dpy=XOpenDisplay(0x0))) return 1;
@@ -53,89 +68,96 @@ static int xlib_init() {
 	XSetWindowAttributes wa;
 	wa.backing_store = Always;
 	wa.background_pixel = background;
-	Listener *lstn;
 	wa.event_mask = StructureNotifyMask | ExposureMask | ButtonPressMask;
-	for (lstn = &listener[i=0]; lstn->name; lstn = &listender[++i]) {
-		lstn->win = XCreateWindow(dpy, root, 0, 0, 22, 22, 0,
-				DefaultDepth(dpy,scr), InputOutput, DefaultVisual(dpy, scr),
-				CWBackPixel | CWBackingStore | CWEventMask, &wa);
-	}
+	win = XCreateWindow(dpy, root, 0, 0, 22, 22, 0,
+			DefaultDepth(dpy,scr), InputOutput, DefaultVisual(dpy, scr),
+			CWBackPixel | CWBackingStore | CWEventMask, &wa);
 }
 
 static int xlib_free() {
-	int i;
-	for (lstn = &listener[i=0]; lstn->name; lstn = &listender[++i])
-		XDestroyWindow(dpy, lstn->win);
+	XDestroyWindow(dpy, win);
 	XCloseDisplay(dpy);
 }
 
-static dbus_bool_t add_watch(DBusWatch *_watch, void *data) {
-	Listener *lstn = data;
-	if (dbus_watch_get_flags(watch) & DBUS_WATCH_READABLE) {
-		lstn->watch = _watch;
-		lstn->fd = dbus_watch_get_fd(_watch);
+static DBusHandlerResult monitor_filter_func (DBusConnection* connection, DBusMessage* msg, void *user_data)
+{
+//static int handle(DBusMessage *msg) {
+	if (dbus_message_get_type(msg) == DBUS_MESSAGE_TYPE_SIGNAL) {
+		printf("sender=%s\n", dbus_message_get_sender(msg));
+		printf("\tserial=%u\n", dbus_message_get_serial(msg));
+		printf("\tpath=%s\n", dbus_message_get_path(msg));
+		printf("\tinterface=%s\n", dbus_message_get_interface(msg));
+		printf("\tmember=%s\n", dbus_message_get_member(msg));
 	}
-	return TRUE;
-}
-
-static void remove_watch(DBusWatch *_watch, void *data) {
-	Listener *lstn = data;
-	if (lstn->watch != _watch) return;
-	lstn->watch = NULL;
-	lstn->fd = 0;
-}
-
-DBusConnection *get_connection() {
-	DBusConnection *conn;
-	conn = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
-	if (!conn) return 1;
-	if (!dbus_connection_set_watch_functions(conn, add_watch, remove_watch,
-			NULL, NULL, NULL)) return 1;
-	dbus_bus_add_match(conn, rule, NULL);
-
-	// TODO finish dbus watch setup
-	if (dbus_watch_get_enabled(watch))
-		;// ...
-	//dbus_watch_handle(watch, 0)
-	return conn;
-}
-
-int get_msg() {
-	// TODO:
-	// - Parse message
-	// - if changed:
-	// 	* create pixmap
-	// 	* redraw bars
-	// 	* set pixmap to win background
-	// 	* xflush
+	//dbus_message_unref(msg);
+	dbus_watch_handle(w, DBUS_WATCH_READABLE);
 	return 0;
 }
 
-int dbus_listener() {
-	DBusConnection *conn = get_connection();
-	int state = get_state(conn);
+static dbus_bool_t w_add(DBusWatch *watch, void *data) {
+	w = watch;
+	wfd = dbus_watch_get_unix_fd(w);
+	return TRUE;
+}
+
+static dbus_bool_t w_del(DBusWatch *watch, void *data) {
+	w = NULL;
+	wfd = 0;
+	return TRUE;
+}
+
+//int dbus_listener() {
+int main() { // for testing only
+	/* dbus setup */
+	//DBusConnection *conn = dbus_bus_get(DBUS_BUS_SESSION, NULL);
+	DBusConnection *conn = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
+	if (!conn) return 1;
+	dbus_bus_add_match(conn, rule, NULL);
+	dbus_connection_set_watch_functions(conn,
+			(DBusAddWatchFunction) w_add,
+			(DBusRemoveWatchFunction) w_del,
+			NULL, NULL, NULL);
+	DBusMessage *msg = NULL;
+if (!wfd) {
+	fprintf(stderr,"no watch yet\n");
+	return 2;
+}
+	/* xlib setup */
 	xlib_init();
 	embed_window(win);
-	int n, ret;
+	/* main loop */
+	fd_set fds;
 	int xfd = ConnectionNumber(dpy);
-// TODO loop through listeners
-	int nfd = (watch_fd > xfd ? watch_fd : xfd) + 1;
+	int nfd;
+	int ret;
 	XEvent ev;
+int running = 1; // TODO
 	while (running) {
 		FD_ZERO(&fds);
 		FD_SET(xfd, &fds);
-		FD_SET(watch_fd, &fds);
-		select(nfd, &fds, 0, 0, NULL);
-		if (watch_fd && FD_ISSET(watcg_fd, &fds))
-			get_msg();
+		if (wfd) FD_SET(wfd, &fds);
+		nfd = (wfd > xfd ? wfd : xfd) + 1;
+		ret = select(nfd, &fds, 0, 0, NULL);
+		
+		DBusHandleMessageFunction filter_func = monitor_filter_func;
+		if (! dbus_connection_add_filter (conn, filter_func, NULL, NULL)) {
+			fprintf (stderr, "Couldn't add filter\n");
+			exit (1);
+		}
+		
+		if (wfd && FD_ISSET(wfd, &fds))
+			//while ( (msg=dbus_connection_pop_message(conn)) )
+			while (dbus_connection_read_write_dispatch(conn, -1))
+				;
+				//handle(msg);
 		if (FD_ISSET(xfd, &fds)) while (XPending(dpy)) {
 			XNextEvent(dpy, &ev);
-			if (ev.type == ButtonPress && connman_click[0])
-				execvp(connman_click[0], (char * const *) connman_click);
+			//if (ev.type == ButtonPress && connman_click[0])
+			//	execvp(connman_click[0], (char * const *) connman_click);
 		}
 	}
 	xlib_free();
-	free_connection(&conn);
+	// TODO clean up after dbus?
 	return 0;
 }
 

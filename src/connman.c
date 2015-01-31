@@ -9,8 +9,8 @@
  *  Suggested improvements (from J. McClure AKA "Trilby"): (see connman_new.c)
  *
  *  1. Replace the nonblocking read with dbus_connection_read_write_dispatch or
- *     similar function to avoid the "sleep-loop" syndrome.
- *  2. Remove the pthread dependence by using DBusWatch and a select loop.
+ *     similar function to avoid the "sleep-loop" syndrome. (done ajb, 31 jan 15)
+ *  2. Remove the pthread dependence by using DBusWatch and a select loop.(done ajb 31 Jan 15)
  *  3. Use array for gcs and color configs.  Initialization can then be done in
  *     a loop through all possible conditionals allowing easier additions in the
  *     future.
@@ -25,7 +25,6 @@
 
 #include <dbus/dbus.h>
 #include <stdbool.h>
-#include  <pthread.h>
 
 enum {
 	// how to draw the rectangles
@@ -47,12 +46,15 @@ static const short bar_gap = 2;			// gap between rectangles (px)
 static const short bar_height = 13;	// height of the rectangles (px)
 
 // Variables
-Window bars;
+static Window bars;
 GC gc_undefined, gc_offline, gc_idle, gc_ready, gc_online;
 int connstate = Undefined;
-DBusConnection* conn;
-DBusError err;
-bool b_havenewstate = FALSE;
+static DBusConnection* conn;
+static DBusError err;
+static bool b_havenewstate = FALSE;
+static int wfd = 0;	// watch file descriptor
+static DBusWatch *w;
+const char *rule = "eavesdrop=true,type='signal',interface='net.connman.Manager'";
 
 // Function to draw a single bar
 static int draw_bar (int start, GC* gc, int type)
@@ -73,7 +75,6 @@ static int draw_bar (int start, GC* gc, int type)
 
 // Function to draw the window we embed in the system tray
 static int redraw() {
-	
 	// clear the window
 	XClearWindow(dpy, bars);
 	
@@ -143,8 +144,20 @@ static int xlib_init() {
 	val.foreground = conn_online;
 	gc_online = XCreateGC(dpy, bars, GCForeground | GCBackground, &val);	
 	
-	//XSelectInput(dpy, root, PropertyChangeMask);
 	XSelectInput (dpy, bars, ExposureMask | ButtonPressMask); 
+}
+
+// DBus watch functions
+static dbus_bool_t w_add(DBusWatch *watch, void *data) {
+	w = watch;
+	wfd = dbus_watch_get_unix_fd(w);
+	return TRUE;
+}
+
+static dbus_bool_t w_del(DBusWatch *watch, void *data) {
+	w = NULL;
+	wfd = 0;
+	return TRUE;
 }
 
 //
@@ -214,42 +227,27 @@ void findState(DBusMessageIter* iter)
 	}	while (dbus_message_iter_next (iter));
 }
 
-// Function to check the PropertyChanged signal.  This function is run 
-// in a separate thread.  
-void* checkSignal(void* arg)
+// Called when we dispatch a message from the main loop
+static DBusHandlerResult monitor_filter_func (DBusConnection* connection, DBusMessage* msg, void *user_data)
 {
-	DBusMessage* msg;
-	DBusMessageIter iter;
 	b_havenewstate = FALSE;	// set or unset in findState()
+	DBusMessageIter iter;
 	
-	while (running) {
-		// non blocking read of the next available message
-		dbus_connection_read_write(conn, 0);
-		msg = dbus_connection_pop_message(conn);
-		
-		// if no message sleep for a while before we look again	
-		if (NULL == msg) {
-			usleep(5000);
-			continue;
-		} 
-			
-		// check if the message is a signal from the correct interface and with the correct name
-		if (dbus_message_is_signal(msg, "net.connman.Manager", "PropertyChanged")) {
-			// read the parameters
-			dbus_message_iter_init(msg, &iter);
-			findState(&iter);
-		}	// if
-	
-		// free the message
-		dbus_message_unref(msg);
+	if (dbus_message_is_signal(msg, "net.connman.Manager", "PropertyChanged")) {
+		// read the parameters
+		dbus_message_iter_init(msg, &iter);
+		findState(&iter);
 		
 		// redraw if new message
 		if (b_havenewstate) redraw();
+		
+		return DBUS_HANDLER_RESULT_HANDLED;
+		}	// if
 	
-	}	// checkSignal loop
-	
-	return NULL;
+	else
+		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;	
 }
+
 
 // Function to query connman.Manager to get the current connection state.
 // Only called once when we are initializing.  After that monitor the
@@ -278,15 +276,17 @@ void getState()
 	// send message and get a handle for a reply
 	if (!dbus_connection_send_with_reply (conn, msg, &pending, -1)) { // -1 is default timeout
 		fprintf(stderr, "Out Of Memory!\n");
+		dbus_message_unref(msg);
 		exit(1);
 	}
 	if (NULL == pending) {
 		fprintf(stderr, "Pending Call Null\n");
+		dbus_message_unref(msg);
 		exit(1);
 	}
 	dbus_connection_flush(conn);
 
-	// free message
+	// free method message
 	dbus_message_unref(msg);
 	
 	// block until we recieve a reply
@@ -306,7 +306,7 @@ void getState()
 	dbus_message_iter_init(msg, &iter);
 	findState(&iter);
 	
-	// free the message
+	// free the reply message
 	dbus_message_unref(msg);
 }
 
@@ -316,11 +316,15 @@ int connman() {
 	xlib_init();
 	XEvent ev;
 	embed_window(bars);
-
+	fd_set fds;
+	int xfd = ConnectionNumber(dpy);	// file descriptor for xlib
+	int nfd;													// number of file descriptors
+	int ret;													// return value
+	
 	// initialise the dbus errors
 	dbus_error_init(&err);
 
-	// connect to the bus and check for errors
+	// Connect to the bus and check for errors
 	conn = dbus_bus_get(DBUS_BUS_SYSTEM, &err);
 	if (dbus_error_is_set(&err)) {
 		fprintf(stderr, "Error Connecting to DBus (%s)\n", err.message);
@@ -329,33 +333,64 @@ int connman() {
 	if (NULL == conn) {
 		exit(1);
 	}
+	
+	// Add match rule and set up watch (file descriptor)
+	dbus_bus_add_match(conn, rule, NULL);
+	dbus_connection_set_watch_functions(conn,
+			(DBusAddWatchFunction) w_add,
+			(DBusRemoveWatchFunction) w_del,
+			NULL, NULL, NULL);
+	DBusMessage *msg = NULL;
+	if (!wfd) {
+		fprintf(stderr,"no watch yet\n");
+		exit(2);
+	}
 
-	// Add a rule for the dbus signal we want to see
-	dbus_bus_add_match(conn, "type='signal',interface='net.connman.Manager'", &err); // see signals from the given interface
-	dbus_connection_flush(conn);
-	if (dbus_error_is_set(&err)) {
-		fprintf(stderr, "Match Error (%s)\n", err.message);
-		exit(1);
+	// Add message handler for dbus_connection_dispatch() function
+	DBusHandleMessageFunction filter_func = monitor_filter_func;
+	if (! dbus_connection_add_filter (conn, filter_func, NULL, NULL)) {
+		fprintf (stderr, "Couldn't add filter\n");
+		exit (3);
 	}
 		
-	// initialize the bars
-	getState();
+	// Get the current connection state
+	getState();	
+		
+	// Main loop
+	while (running) {
+		// Initialize the file descriptor set, must be done after every select()
+		FD_ZERO(&fds);
+		FD_SET(xfd, &fds);
+		if (wfd) FD_SET(wfd, &fds);
+		nfd = (wfd > xfd ? wfd : xfd) + 1;
+		redraw();
+		
+		// select() blocks until one of the file descriptors needs attention
+		ret = select(nfd, &fds, 0, 0, NULL);
+		
+		// if dbus watch needs attention
+		if (wfd && FD_ISSET(wfd, &fds)) {
+			dbus_watch_handle(w, DBUS_WATCH_READABLE);
+			while (dbus_connection_dispatch(conn) != DBUS_DISPATCH_COMPLETE) { 
+			}	// while dispatch not complete
+		}	// if wfd
+		
+		// if xevents need attention
+		if (FD_ISSET(xfd, &fds)) while (XPending(dpy)) {
+			XNextEvent(dpy, &ev);
+			// left button open cmst, any other button close
+			if (ev.type == ButtonPress) {
+				XButtonEvent* xbv = (XButtonEvent*) &ev;
+				if (xbv->button == 1) {
+					if (connman_click[0] && fork() == 0) 
+					execvp(connman_click[0], (char * const *) connman_click);	
+				}	// if button 1
+				else running = FALSE;
+			}	// if button press			
+		}	// if xfd
+				
+	}	// whle running
 	
-	// start up the thread to monitor DBus
-	int thread_err;
-	pthread_t tid;
-	thread_err = pthread_create(&tid, NULL, &checkSignal, NULL);
-	if (thread_err != 0) {
-		fprintf(stderr, "Error Creating the getState Thread: (%s)\n", strerror(thread_err) );
-		exit(1);
-	}
-
-	// start event loop
-	while (running && !XNextEvent(dpy, &ev)) {
-		if (ev.type == Expose) redraw();
-		else if (ev.type == ButtonPress && connman_click[0] && fork() == 0)
-			execvp(connman_click[0], (char * const *) connman_click);
-	}
 	xlib_free();
 	return 0;
 }

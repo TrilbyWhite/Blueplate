@@ -58,7 +58,7 @@ static Window win;
 static DBusWatch *w;
 //const char *rule = "eavesdrop=true,type='signal'";
 const char *rule = "eavesdrop=true";
-//const char *rule = "eavesdrop=true,type='signal',interface='net.connman.Manager'"
+//const char *rule = "eavesdrop=true,type='signal',interface='net.connman.Manager'";
 
 static int xlib_init() {
 	if (!(dpy=XOpenDisplay(0x0))) return 1;
@@ -88,7 +88,6 @@ static int handle(DBusMessage *msg) {
 		printf("\tmember=%s\n", dbus_message_get_member(msg));
 	}
 	dbus_message_unref(msg);
-	dbus_watch_handle(w, DBUS_WATCH_READABLE);
 	return 0;
 }
 
@@ -108,6 +107,7 @@ static dbus_bool_t w_del(DBusWatch *watch, void *data) {
 int main() { // for testing only
 	/* dbus setup */
 	DBusConnection *conn = dbus_bus_get(DBUS_BUS_SESSION, NULL);
+//	DBusConnection *conn = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
 	if (!conn) return 1;
 	dbus_bus_add_match(conn, rule, NULL);
 	dbus_connection_set_watch_functions(conn,
@@ -135,9 +135,11 @@ int running = 1; // TODO
 		if (wfd) FD_SET(wfd, &fds);
 		nfd = (wfd > xfd ? wfd : xfd) + 1;
 		ret = select(nfd, &fds, 0, 0, NULL);
-		if (wfd && FD_ISSET(wfd, &fds))
+		if (wfd && FD_ISSET(wfd, &fds)) {
+			dbus_watch_handle(w, DBUS_WATCH_READABLE);
 			while ( (msg=dbus_connection_pop_message(conn)) )
 				handle(msg);
+		}
 		if (FD_ISSET(xfd, &fds)) while (XPending(dpy)) {
 			XNextEvent(dpy, &ev);
 			//if (ev.type == ButtonPress && connman_click[0])

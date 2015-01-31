@@ -378,19 +378,17 @@ int connman() {
 		// if xevents need attention
 		if (FD_ISSET(xfd, &fds)) while (XPending(dpy)) {
 			XNextEvent(dpy, &ev);
-			if (ev.type == ButtonPress && connman_click[0] && fork() == 0) {
+			// left button open cmst, any other button close
+			if (ev.type == ButtonPress) {
 				XButtonEvent* xbv = (XButtonEvent*) &ev;
 				if (xbv->button == 1) {
+					if (connman_click[0] && fork() == 0) 
 					execvp(connman_click[0], (char * const *) connman_click);	
-				}
-				else
-				{
-					running = FALSE;
-				}
-			}	// if button press
-			
+				}	// if button 1
+				else running = FALSE;
+			}	// if button press			
 		}	// if xfd
-		
+				
 	}	// whle running
 	
 	xlib_free();

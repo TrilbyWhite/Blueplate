@@ -382,7 +382,7 @@ int connman() {
 			if (ev.type == ButtonPress) {
 				XButtonEvent* xbv = (XButtonEvent*) &ev;
 				if (xbv->button == 1 && connman_click[0]) {
-					// use a double fork to creating a zombie process
+					// use a double fork to avoid creating a zombie process
 					pid_t pid1;
 					pid_t pid2;
 					int status;

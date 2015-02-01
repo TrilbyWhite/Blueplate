@@ -382,8 +382,10 @@ int connman() {
 			if (ev.type == ButtonPress) {
 				XButtonEvent* xbv = (XButtonEvent*) &ev;
 				if (xbv->button == 1) {
-					if (connman_click[0] && fork() == 0) 
-					execvp(connman_click[0], (char * const *) connman_click);	
+					if (connman_click[0] && fork() == 0) { 
+						execvp(connman_click[0], (char * const *) connman_click);	
+						wait();	// needed to avoid zombie process
+					}
 				}	// if button 1
 				else running = FALSE;
 			}	// if button press			

@@ -40,11 +40,6 @@ enum {
 	
 };	// enum
 
-// Constants
-static const short bar_width = 3;		// width of the rectangle (px)
-static const short bar_gap = 2;			// gap between rectangles (px)
-static const short bar_height = 13;	// height of the rectangles (px)
-
 // Variables
 static Window bars;
 GC gc_undefined, gc_offline, gc_idle, gc_ready, gc_online;

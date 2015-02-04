@@ -394,9 +394,9 @@ int connman() {
 						sigemptyset(&sa.sa_mask);
 						sigaction(SIGTERM, &sa, NULL);
 						XCloseDisplay(dpy);
-						close(stdin);
-						close(stdout);
-						close(stderr);
+						fclose(stdin);
+						fclose(stdout);
+						fclose(stderr);
 						execvp(connman_click[0], (char * const *) connman_click);
 					}
 					else

@@ -18,8 +18,8 @@ static Desktop desk[] = {
 #ifdef module_mail
 static MBox box[] = {
 	/* path to maildir,                    color,    0 */
-	{"/home/andy/mb1", 0x94BBD1, 0},
-	{"/home/andy/mb2", 0x9498A2, 0},
+	{"/home/jmcclure/mail/umass/INBOX/new", 0x94BBD1, 0},
+	{"/home/jmcclure/mail/mccluresk9/INBOX/new", 0x9498A2, 0},
 	/* keep a null terminator */
 	{NULL, 0, 0},
 };
@@ -60,3 +60,38 @@ static const unsigned long conn_online			= 0x11EE11;
 //static const char *connman_click[] = { NULL };
 static const char *connman_click[] = { "cmst", "--disable-tray-icon", NULL };
 #endif /* module_connman */
+ 
+#ifdef module_battery
+static Battery bat[] = {
+	/* path to battery data, outline_color, fill_color, 0, 0, 0 */
+	{"/sys/class/power_supply/BAT0", 0xDDDDDD,  0x94BBD1, 0, 0, 0},
+	{"/sys/class/power_supply/BAT1", 0xDDDDDD,  0x94BBD1, 0, 0, 0},
+	/* keep a null terminator */
+	{NULL, 0, 0},
+};
+
+// Battery fill area, start counting pixels from upper left as 0,0
+// Format is x, y, width, height
+static const XRectangle battery_fill_rect = {3, 2, 7, 10};
+
+// 13x13 battery (hollow) icon
+static const XPoint battery_icon_size = { 13, 13 };
+static const char battery_icon_data[] = {
+  0xE0, 0x00, 0xF8, 0x03, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 
+  0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 
+  0xF8, 0x03, };
+
+// 13x13 plug charging icon
+static const XRectangle battery_charging_size = {13, 13 };
+static const char battery_charging_data[] = {
+  0x08, 0x02, 0x08, 0x02, 0x08, 0x02, 0x08, 0x02, 0xFC, 0x07, 0x02, 0x08, 
+  0x02, 0x08, 0x02, 0x08, 0x02, 0x08, 0x04, 0x04, 0x18, 0x03, 0xE0, 0x00, 
+  0x40, 0x00, };  
+  
+// 13x13 plug full icon
+static const XRectangle battery_full_size = {13, 13 };
+static const char battery_full_data[] = {
+  0x08, 0x02, 0x08, 0x02, 0x08, 0x02, 0x08, 0x02, 0xFC, 0x07, 0xFE, 0x0F, 
+  0xFE, 0x0F, 0xFE, 0x0F, 0xFE, 0x0F, 0xFC, 0x07, 0xF8, 0x03, 0xE0, 0x00, 
+  0x40, 0x00, };
+#endif /* module_battery */  	

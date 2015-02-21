@@ -18,8 +18,8 @@ static Desktop desk[] = {
 #ifdef module_mail
 static MBox box[] = {
 	/* path to maildir,                    color,    0 */
-	{"/home/jmcclure/mail/umass/INBOX/new", 0x94BBD1, 0},
-	{"/home/jmcclure/mail/mccluresk9/INBOX/new", 0x9498A2, 0},
+	{"/home/andy/Mail/new", 0x94BBD1, 0},
+	//{"/home/jmcclure/mail/mccluresk9/INBOX/new", 0x9498A2, 0},
 	/* keep a null terminator */
 	{NULL, 0, 0},
 };
@@ -63,11 +63,13 @@ static const char *connman_click[] = { "cmst", "--disable-tray-icon", NULL };
  
 #ifdef module_battery
 static Battery bat[] = {
-	/* path to battery data, outline_color, fill_color, 0, 0, 0 */
-	{"/sys/class/power_supply/BAT0", 0xDDDDDD,  0x94BBD1, 0, 0, 0},
-	{"/sys/class/power_supply/BAT1", 0xDDDDDD,  0x94BBD1, 0, 0, 0},
-	/* keep a null terminator */
-	{NULL, 0, 0},
+	// one line for each battery icon you wish to define.  There can be more
+	// icons defined than there are batteries.  Each icon can have its own 
+	// color scheme if desired.
+	/* outline_color, fill_color, 0, 0, 0 */
+	{0xDDDDDD,  0x94BBD1, 0, 0, 0},
+	{0xDDDDDD,  0x94BBD1, 0, 0, 0},
+	{0xDDDDDD,  0x94BBD1, 0, 0, 0},
 };
 
 // Battery fill area, start counting pixels from upper left as 0,0

@@ -28,7 +28,6 @@ typedef struct Desktop {
 } Desktop;
 
 typedef struct Battery {
-	const char *battpath;
 	unsigned long int outline_color;
 	unsigned long int fill_color;
 	short int health;

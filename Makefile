@@ -11,7 +11,6 @@ DEPS     =  x11
 DEPS     += dbus-1
 CFLAGS   += $(shell pkg-config --cflags ${DEPS}) ${DEFS}
 LDLIBS   += $(shell pkg-config --libs ${DEPS}) -lm
-#LDLIBS   += -lpthread
 LDLIBS		+=-ludev
 PREFIX   ?= /usr
 HEADERS  =  config.h blueplate.h

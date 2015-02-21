@@ -150,43 +150,43 @@ static int rescan() {
 				XFillArc(dpy, pix, bat[i].gc, 0, 0, battery_icon_size.x, battery_icon_size.y, 90 * 64, (int)(360.0 * 64.0 * e_full / e_design) );
 			} 
 				
-				else if (e_state == Charging) {
-					pix = XCreatePixmapFromBitmapData(dpy, root,
-						(char *) battery_charging_data, battery_charging_size.x, battery_charging_size.y,
-						bat[i].outline_color, background, DefaultDepth(dpy,scr));
-				}	// if charging
+			else if (e_state == Charging) {
+				pix = XCreatePixmapFromBitmapData(dpy, root,
+					(char *) battery_charging_data, battery_charging_size.x, battery_charging_size.y,
+					bat[i].outline_color, background, DefaultDepth(dpy,scr));
+			}	// if charging
+			
+			else if (e_state == Full) {
+				pix = XCreatePixmapFromBitmapData(dpy, root,
+					(char *) battery_full_data, battery_charging_size.x, battery_charging_size.y,
+					bat[i].fill_color, background, DefaultDepth(dpy,scr));
+			}	// else full
+			
+			else if (e_full != 0.0) {
+				pix = XCreatePixmapFromBitmapData(dpy, root,
+					(char *) battery_icon_data, battery_icon_size.x, battery_icon_size.y,
+					bat[i].outline_color, background, DefaultDepth(dpy,scr));			
+				int fillheight = (int) (battery_fill_rect.height * e_now / e_full + 0.5f);
+				XFillRectangle(dpy, pix, bat[i].gc, battery_fill_rect.x, battery_fill_rect.y + (battery_fill_rect.height - fillheight), battery_fill_rect.width, fillheight);
+			}	// else discharging	
 				
-				else if (e_state == Full) {
-					pix = XCreatePixmapFromBitmapData(dpy, root,
-						(char *) battery_full_data, battery_charging_size.x, battery_charging_size.y,
-						bat[i].fill_color, background, DefaultDepth(dpy,scr));
-				}	// else full
-				
-				else if (e_full != 0.0) {
-					pix = XCreatePixmapFromBitmapData(dpy, root,
-						(char *) battery_icon_data, battery_icon_size.x, battery_icon_size.y,
-						bat[i].outline_color, background, DefaultDepth(dpy,scr));			
-					int fillheight = (int) (battery_fill_rect.height * e_now / e_full + 0.5f);
-					XFillRectangle(dpy, pix, bat[i].gc, battery_fill_rect.x, battery_fill_rect.y + (battery_fill_rect.height - fillheight), battery_fill_rect.width, fillheight);
-				}	// else discharging	
-					
-				XClearWindow(dpy, bat[i].win);
-				XSetWindowBackgroundPixmap(dpy, bat[i].win, pix);
-				XFreePixmap(dpy, pix);
-				embed_window(bat[i].win);
-			}	// if batt
+			XClearWindow(dpy, bat[i].win);
+			XSetWindowBackgroundPixmap(dpy, bat[i].win, pix);
+			XFreePixmap(dpy, pix);
+			embed_window(bat[i].win);
+		}	// if batt
 		
-			else {							
-				show &= ~(1<<i);
-				XUnmapWindow(dpy, bat[i].win);
-				XReparentWindow(dpy, bat[i].win, root, 0, 0);
-			}	// else
+		else {							
+			show &= ~(1<<i);
+			XUnmapWindow(dpy, bat[i].win);
+			XReparentWindow(dpy, bat[i].win, root, 0, 0);
+		}	// else
 		
-		}	// for each icon
+	}	// for each icon
 	
+	// Cleanup, refresh icons if necessary and return
 	udev_enumerate_unref(enumerate);
 	udev_unref(udev);
-
 	if (show != prev) XFlush(dpy);
 	return 0;		
 }
@@ -197,7 +197,7 @@ int battery() {
 	struct udev_device* dev;		
 	struct pollfd pfd[2];
 	int mfd;		// monitor file descriptor	
-	const int timeout = 5 * 60 * 1000;
+	const int timeout = 5 * 60 * 1000;	// interval to check battery if nothing else has occured (milliseconds)
 		
 	// Initialize xlib
 	xlib_init();
@@ -233,7 +233,7 @@ int battery() {
 		if (poll(pfd, sizeof(pfd) / sizeof(pfd[0]), timeout) == 0) {
 			rescan();
 		}  		
-		
+			
 		// process udev changes
 		else if (pfd[0].revents & POLLIN) {
 			dev = udev_monitor_receive_device(mon);

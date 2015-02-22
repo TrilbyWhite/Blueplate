@@ -79,6 +79,9 @@ int main(int argc, const char **argv) {
 #endif
 #ifdef module_connman
 		else if (strncmp(argv[i], "conn", 4) == 0) child = connman;
+#endif		
+#ifdef module_battery
+		else if (strncmp(argv[i], "batt", 4) == 0) child = battery;
 #endif
 		else fprintf(stderr,"%s: %s: no such module\n", argv[0], argv[i]);
 		if (child && (fork() == 0) ) {

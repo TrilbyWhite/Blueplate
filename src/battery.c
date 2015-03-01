@@ -10,6 +10,7 @@ r*
 
 #include <poll.h>
 #include <libudev.h>
+#include <dbus/dbus.h>
 
 enum {
 	// states
@@ -21,6 +22,10 @@ enum {
 	Health_No = 0x00,
 	Health_Yes = 0x01,
 };	// enum
+
+// global variables
+static short batterystatusid = -1;
+
 
 static int xlib_init() {
 	if (!(dpy=XOpenDisplay(0x0))) return 1;
@@ -56,6 +61,132 @@ static int xlib_free() {
 	XCloseDisplay(dpy);
 }
 
+//	Communicate with the notify server (if one exists)
+//	Variables
+static DBusConnection* cnxn_session;
+static DBusError err;
+
+// Function to send a notification to the notification daemon
+static void sendNotification(int percentfull)
+{
+	// constants and variables for use here
+	const short bodysize = 33;
+	const short appiconsize = 16;
+	const short summarysize = 22;
+	
+	// make sure we can send a notification
+	if (cnxn_session == NULL) return;
+	
+	// constants and variables for display
+	const char* app_name = "Blueplate";	
+	static dbus_uint32_t notify_id = 0;	
+	char* app_icon = malloc (appiconsize * sizeof(char));
+	char* summary = malloc (summarysize * sizeof(char));
+	char* body = malloc (bodysize * sizeof(char));														
+	const dbus_int32_t expire = -1;
+	
+	// hints
+	const char* key00 = "urgency";
+	unsigned char val00= 0;
+	const char* key01 = "category";
+	const char* val01 = "device";	
+	
+
+	// create the summary, app_icon, body text and urgency level
+	if (percentfull <= notification_trigger) {
+		snprintf(app_icon, 12, "battery-low");
+		snprintf(summary, 22, "Low Battery Warning\n");
+		snprintf(body, bodysize, "Battery Level now at <b>%i</b>%%", percentfull);
+		val00 = 2;
+	}
+	else {
+		snprintf(summary, 18, "Battery Status\n");
+		snprintf(body, bodysize, "Battery Level now at <b>%i</b>%%", percentfull);
+		if (percentfull < 20 ) {
+			snprintf(app_icon, 12, "battery-low");
+			val00 = 2;
+		}
+		else if (percentfull < 40) {
+			snprintf(app_icon, 16, "battery-caution");
+			val00 = 1;
+		}
+		else {
+			snprintf(app_icon, 8, "battery");
+			val00 = 0;
+		}
+	}
+		
+	// create a new method call for Notify 
+	DBusMessage* msg;
+	DBusMessageIter iter00, iter01, iter02, iter03;
+	msg = dbus_message_new_method_call("org.freedesktop.Notifications", // target for the method call
+																		"/org/freedesktop/Notifications", // object to call on
+																		"org.freedesktop.Notifications", // interface to call on
+																		"Notify"); // method name
+																																			
+	
+	// assemble the arguments for the method call	
+	dbus_message_iter_init_append(msg, &iter00);
+	dbus_message_iter_append_basic(&iter00, DBUS_TYPE_STRING, &app_name);
+	dbus_message_iter_append_basic(&iter00, DBUS_TYPE_UINT32, &notify_id);
+	dbus_message_iter_append_basic(&iter00, DBUS_TYPE_STRING, &app_icon);
+	dbus_message_iter_append_basic(&iter00, DBUS_TYPE_STRING, &summary);
+	dbus_message_iter_append_basic(&iter00, DBUS_TYPE_STRING, &body);
+	
+	dbus_message_iter_open_container(&iter00, DBUS_TYPE_ARRAY, "s", &iter01);
+	dbus_message_iter_close_container(&iter00, &iter01);
+	
+	char sig[5];
+	sig[0] = DBUS_DICT_ENTRY_BEGIN_CHAR;
+	sig[1] = DBUS_TYPE_STRING;
+	sig[2] = DBUS_TYPE_VARIANT;
+	sig[3] = DBUS_DICT_ENTRY_END_CHAR;
+	sig[4] = '\0';
+	dbus_message_iter_open_container(&iter00, DBUS_TYPE_ARRAY, sig, &iter01);	
+		dbus_message_iter_open_container(&iter01, DBUS_TYPE_DICT_ENTRY, NULL, &iter02);
+		dbus_message_iter_append_basic(&iter02, DBUS_TYPE_STRING, &key00);
+			dbus_message_iter_open_container(&iter02, DBUS_TYPE_VARIANT, "y", &iter03);
+			dbus_message_iter_append_basic(&iter03, DBUS_TYPE_BYTE, &val00);
+			dbus_message_iter_close_container(&iter02, &iter03);
+		dbus_message_iter_close_container(&iter01, &iter02);
+	
+		dbus_message_iter_open_container(&iter01, DBUS_TYPE_DICT_ENTRY, NULL, &iter02);
+		dbus_message_iter_append_basic(&iter02, DBUS_TYPE_STRING, &key01);
+			dbus_message_iter_open_container(&iter02, DBUS_TYPE_VARIANT, "s", &iter03);
+			dbus_message_iter_append_basic(&iter03, DBUS_TYPE_STRING, &val01);
+			dbus_message_iter_close_container(&iter02, &iter03);
+		dbus_message_iter_close_container(&iter01, &iter02);
+	dbus_message_iter_close_container(&iter00, &iter01);
+	
+	dbus_message_iter_append_basic(&iter00, DBUS_TYPE_INT32, &expire);
+	
+	// send the message, create a reply and use to find the notify_id number
+	DBusPendingCall* pending;
+	if (! dbus_connection_send_with_reply (cnxn_session, msg, &pending, -1)) {
+		fprintf(stderr, "Out of memory for reply message.\n");	
+		dbus_message_unref(msg);
+	}
+	else {
+		dbus_message_unref(msg);
+		dbus_pending_call_block(pending);
+		msg = dbus_pending_call_steal_reply(pending);
+		dbus_pending_call_unref(pending);
+		DBusMessageIter args;
+		if (dbus_message_iter_init(msg, &args)) {
+			if (DBUS_TYPE_UINT32 == dbus_message_iter_get_arg_type(&args) ) {
+				dbus_message_iter_get_basic(&args, &notify_id);
+			}	// if uint32
+		}	// if iter has args
+		dbus_message_unref(msg);
+	}	// else
+	
+	free(body);
+	free(summary);
+	free(app_icon);
+	return;
+}
+
+// Function to rescan the system looking for the battery and charging state
 static int rescan() {
 	static unsigned int show = 0;
 	unsigned int prev = show;
@@ -135,6 +266,11 @@ static int rescan() {
 			show |= (1<<i);			
 			int scr = DefaultScreen(dpy);
 			
+			// get a percent full to use for status notifications
+			int percentfull = 0.0;
+			if (e_full != 0.0) percentfull = (int) (100.0 * e_now / e_full + 0.5f);
+			if (i == batterystatusid) sendNotification(percentfull);
+			
 			// In this module draw everything on a pixmap and then put the pixmap on the window
 			Pixmap pix;
 			
@@ -168,6 +304,8 @@ static int rescan() {
 					bat[i].outline_color, background, DefaultDepth(dpy,scr));			
 				int fillheight = (int) (battery_fill_rect.height * e_now / e_full + 0.5f);
 				XFillRectangle(dpy, pix, bat[i].gc, battery_fill_rect.x, battery_fill_rect.y + (battery_fill_rect.height - fillheight), battery_fill_rect.width, fillheight);
+				if (notification_trigger >= 0 && notification_trigger <= 100) 
+					if (percentfull <= notification_trigger) sendNotification(percentfull);   
 			}	// else discharging	
 				
 			XClearWindow(dpy, bat[i].win);
@@ -198,7 +336,17 @@ int battery() {
 	struct pollfd pfd[2];
 	int mfd;		// monitor file descriptor	
 	const int timeout = 5 * 60 * 1000;	// interval to check battery if nothing else has occured (milliseconds)
-		
+
+	// initialise the dbus errors
+	dbus_error_init(&err);
+
+	// Connect to the bus and check for errors
+	cnxn_session = dbus_bus_get(DBUS_BUS_SESSION, &err);
+	if (dbus_error_is_set(&err)) {
+		fprintf(stderr, "Error Connecting to DBus (%s)\n", err.message);
+		dbus_error_free(&err);
+	}
+	
 	// Initialize xlib
 	xlib_init();
 	XEvent ev;
@@ -251,10 +399,14 @@ int battery() {
 					int i;
 					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {
 						if (xbv->window == bat[i].win ) {
-							bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
+							if (xbv->button == 1 && connman_click[0])
+								bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
+							else	
+								batterystatusid = i;
 						}	// if
 					}	// for each bat[i]
 					rescan();
+					batterystatusid = -1;
 				}	// if ButtonPress
 			}	// while XPending
 		}	// if pfd[1]

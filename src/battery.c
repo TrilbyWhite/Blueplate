@@ -90,7 +90,6 @@ static void sendNotification(int percentfull)
 	unsigned char val00= 0;
 	const char* key01 = "category";
 	const char* val01 = "device";	
-	
 
 	// create the summary, app_icon, body text and urgency level
 	if (percentfull <= notification_trigger) {
@@ -122,8 +121,7 @@ static void sendNotification(int percentfull)
 	msg = dbus_message_new_method_call("org.freedesktop.Notifications", // target for the method call
 																		"/org/freedesktop/Notifications", // object to call on
 																		"org.freedesktop.Notifications", // interface to call on
-																		"Notify"); // method name
-																																			
+																		"Notify"); // method name																															
 	
 	// assemble the arguments for the method call	
 	dbus_message_iter_init_append(msg, &iter00);
@@ -220,6 +218,7 @@ static int rescan() {
 			++n_bat;		
 		udev_device_unref(dev);
 	}	// foreach	
+	
 	// Make sure there are enough icons to cover the number of batteries found
 	if (n_bat > sizeof(bat)/sizeof(bat[0])) {
 		fprintf(stderr, "Error: found %i batteries, but only %i icons are defined\n",n_bat, sizeof(bat)/sizeof(bat[0]));

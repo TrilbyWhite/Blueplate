@@ -54,24 +54,8 @@ int init_atoms() {
 }
 
 void sighandler(int sig) {
-	
-	switch (sig) {
-		case SIGTERM: {
-			running = False;
-			break;
-		}
-		case SIGCHLD: {
-			// we don't use pid or status for anything, but they are here if we want them
-			pid_t pid;
-			int status;
-			
-			pid = waitpid(-1, &status, NULL);
-			break;
-		}	
-		default: 
-			break;
-	}	// switch
-	
+	if (sig == SIGTERM) running = False;
+	else if (sig == SIGCHLD) waitpid(-1, NULL, NULL);
 }
 
 void help() {

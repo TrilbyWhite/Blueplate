@@ -55,6 +55,7 @@ int init_atoms() {
 
 void sighandler(int sig) {
 	if (sig == SIGTERM) running = False;
+	else if (sig == SIGCHLD) waitpid(-1, NULL, NULL);
 }
 
 void help() {
@@ -87,6 +88,7 @@ int main(int argc, const char **argv) {
 		if (child && (fork() == 0) ) {
 			setsid();
 			sigaction(SIGTERM, &sa, NULL);
+			sigaction(SIGCHLD, &sa, NULL);
 			return child();
 		}
 	}

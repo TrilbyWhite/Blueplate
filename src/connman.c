@@ -355,7 +355,7 @@ int connman() {
 	embed_window(bars);
 	redraw();
 	while (running && poll(pfd, sizeof(pfd) / sizeof(pfd[0]), -1) ) {
-		redraw();
+	
 		// if dbus watch needs attention
 		if (pfd[1].revents & POLLIN) {
 			dbus_watch_handle(w, DBUS_WATCH_READABLE);
@@ -382,6 +382,8 @@ int connman() {
 				else running = FALSE;
 			}	// if button press	
 		}	// while xpending
+		
+		redraw();
 	}	// while running
 	xlib_free();
 	return 0;

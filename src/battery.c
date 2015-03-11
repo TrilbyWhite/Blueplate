@@ -259,6 +259,13 @@ static int rescan() {
 			udev_device_unref(dev);
 			}	// foreach dev_list_entry in devices
 		}	// if (j < n_bat)
+		
+		if (i == 0) {
+			batt = 1;
+			e_design = 100.0;
+			e_now = 70.00;
+			e_full = 90.0;
+		}
 					
 		// prepare the icons				
 		if (batt) {

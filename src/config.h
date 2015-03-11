@@ -18,8 +18,9 @@ static Desktop desk[] = {
 #ifdef module_mail
 static MBox box[] = {
 	/* path to maildir,                    color,    0 */
-	{"/home/jmcclure/mail/umass/INBOX/new", 0x94BBD1, 0},
-	{"/home/jmcclure/mail/mccluresk9/INBOX/new", 0x9498A2, 0},
+	//{"/home/jmcclure/mail/umass/INBOX/new", 0x94BBD1, 0},
+	//{"/home/jmcclure/mail/mccluresk9/INBOX/new", 0x9498A2, 0},
+	{"/home/andy/mail", 0x94BBD1, 0},
 	/* keep a null terminator */
 	{NULL, 0, 0},
 };

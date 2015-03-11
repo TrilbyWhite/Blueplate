@@ -91,16 +91,38 @@ int desktop() {
 	xlib_init();
 	XEvent ev;
 	while (running) {
+		printf("starting embed\n");
 		rehash(); redraw();
 		embed_window(desks);
 		while (running && !XNextEvent(dpy, &ev)) {
-			if (ev.xany.window == desks && ev.type == UnmapNotify) break;
-			else if (ev.xany.window == desks && ev.type == Expose) redraw();
-			else if (!(ev.xany.window == root && ev.type == PropertyNotify)) continue;
-			else if (ev.xproperty.atom == atom[CurDesk]) redraw();
-			else if (ev.xproperty.atom == atom[IconGeo]) redraw();
-			else if (ev.xproperty.atom == atom[WinList]) rehash();
-			else if (ev.xproperty.atom == atom[WinDesk]) rehash();
+			if (ev.xany.window == desks && ev.type == UnmapNotify){
+				printf("going to break\n");
+				 break;
+			 }
+			else if (ev.xany.window == desks && ev.type == Expose) {
+				printf("expose event\n");
+				 redraw();
+			 }
+			else if (!(ev.xany.window == root && ev.type == PropertyNotify)) {
+				printf("continue\n");
+				 continue;
+			 }
+			else if (ev.xproperty.atom == atom[CurDesk]) {
+				printf("cur desk\n");
+				 redraw();
+				 }
+			else if (ev.xproperty.atom == atom[IconGeo]) {
+				printf("icon geo\n");
+				redraw();
+			}
+			else if (ev.xproperty.atom == atom[WinList]) {
+				printf("winlist\n");
+				 rehash();
+			 }
+			else if (ev.xproperty.atom == atom[WinDesk]) {
+				printf("windesk\n");
+				 rehash();
+			 }
 		}
 	}
 	xlib_free();

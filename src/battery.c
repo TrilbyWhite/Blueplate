@@ -34,7 +34,7 @@ static int xlib_init() {
 	init_atoms();
 	XSetWindowAttributes wa;
 	wa.backing_store = Always;
-	wa.event_mask = StructureNotifyMask;
+	wa.event_mask = StructureNotifyMask | ExposureMask | ButtonPressMask;
 	
 	int i;
 	for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {
@@ -47,8 +47,8 @@ static int xlib_init() {
 	val.background = background;
 	val.fill_style = FillSolid;
 	bat[i].gc = XCreateGC(dpy, bat[i].win, GCForeground | GCBackground | GCFillStyle, &val);	
-	
-	XSelectInput (dpy, bat[i].win, ExposureMask | ButtonPressMask); 
+
+	XSelectInput (dpy, root, PropertyChangeMask);
 	}
 
 return 0;
@@ -259,14 +259,7 @@ static int rescan() {
 			udev_device_unref(dev);
 			}	// foreach dev_list_entry in devices
 		}	// if (j < n_bat)
-		
-		if (i == 0) {
-			batt = 1;
-			e_design = 100.0;
-			e_now = 70.00;
-			e_full = 90.0;
-		}
-					
+				
 		// prepare the icons				
 		if (batt) {
 			show |= (1<<i);			
@@ -400,12 +393,13 @@ int battery() {
 		else if (pfd[1].revents & POLLIN) {
 			while (XPending(dpy)) {
 				XNextEvent(dpy, &ev);
+				if (ev.type == UnmapNotify) rescan();
 				if (ev.type == ButtonPress) {
 					XButtonEvent* xbv = (XButtonEvent*) &ev;
 					int i;
 					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {
 						if (xbv->window == bat[i].win ) {
-							if (xbv->button == 1 && connman_click[0])
+							if (xbv->button == 1)
 								bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
 							else	
 								batterystatusid = i;

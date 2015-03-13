@@ -310,21 +310,26 @@ static int rescan() {
 			XClearWindow(dpy, bat[i].win);
 			XSetWindowBackgroundPixmap(dpy, bat[i].win, pix);
 			XFreePixmap(dpy, pix);
-			embed_window(bat[i].win);
 		}	// if batt
 		
-		else {							
-			show &= ~(1<<i);
-			XUnmapWindow(dpy, bat[i].win);
-			XReparentWindow(dpy, bat[i].win, root, 0, 0);
-		}	// else
-		
+		else show &= ~(1<<i);
 	}	// for each icon
+	
+	// correct window mappings based on number of icons to show
+	if (show != prev) {
+		for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {	
+			if (i < show ) embed_window(bat[i].win);
+			else 	{
+				XUnmapWindow(dpy, bat[i].win);
+				XReparentWindow(dpy, bat[i].win, root, 0, 0);
+			}	// else
+		}	// if
+	}	// for show != prev
 	
 	// Cleanup, refresh icons if necessary and return
 	udev_enumerate_unref(enumerate);
 	udev_unref(udev);
-	if (show != prev) XFlush(dpy);
+	XFlush(dpy);
 	return 0;		
 }
 
@@ -393,16 +398,21 @@ int battery() {
 		else if (pfd[1].revents & POLLIN) {
 			while (XPending(dpy)) {
 				XNextEvent(dpy, &ev);
-				if (ev.type == UnmapNotify) rescan();
-				if (ev.type == ButtonPress) {
+				int i;
+				if (ev.type == UnmapNotify) {
+					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {	
+						if (ev.xany.window == bat[i].win) embed_window(bat[i].win);
+					}	// for each bat[i]
+				}	// if	Unmapnotify
+				else if (ev.type == ButtonPress) {
 					XButtonEvent* xbv = (XButtonEvent*) &ev;
-					int i;
 					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {
 						if (xbv->window == bat[i].win ) {
-							if (xbv->button == 1)
+							if (xbv->button == 1) 
 								bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
-							else	
+							else
 								batterystatusid = i;
+						break;	
 						}	// if
 					}	// for each bat[i]
 					rescan();

@@ -1,3 +1,4 @@
+
 /**********************************************************************\
 * BATTERY.C - module for BLUEPLATE
 r*
@@ -235,7 +236,7 @@ static int rescan() {
 		float e_full = 0.0;
 		float e_now = 0.0;
 		const char* pchar;
-		
+	
 		// Match batteries in device list with icons
 		if (i < n_bat) {	
 			udev_list_entry_foreach(dev_list_entry, devices) {
@@ -309,6 +310,7 @@ static int rescan() {
 				
 			XClearWindow(dpy, bat[i].win);
 			XSetWindowBackgroundPixmap(dpy, bat[i].win, pix);
+			XRaiseWindow(dpy, bat[i].win);
 			XFreePixmap(dpy, pix);
 		}	// if batt
 		
@@ -324,7 +326,7 @@ static int rescan() {
 				XReparentWindow(dpy, bat[i].win, root, 0, 0);
 			}	// else
 		}	// if
-	}	// for show != prev
+	}	// if show != prev
 	
 	// Cleanup, refresh icons if necessary and return
 	udev_enumerate_unref(enumerate);
@@ -399,29 +401,27 @@ int battery() {
 			while (XPending(dpy)) {
 				XNextEvent(dpy, &ev);
 				int i;
-				if (ev.type == UnmapNotify) {
+				if (ev.type == UnmapNotify || ev.type == ButtonPress) {
 					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {	
-						if (ev.xany.window == bat[i].win) embed_window(bat[i].win);
-					}	// for each bat[i]
-				}	// if	Unmapnotify
-				else if (ev.type == ButtonPress) {
-					XButtonEvent* xbv = (XButtonEvent*) &ev;
-					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {
-						if (xbv->window == bat[i].win ) {
-							if (xbv->button == 1) 
-								bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
-							else
-								batterystatusid = i;
-						break;	
-						}	// if
-					}	// for each bat[i]
-					rescan();
-					batterystatusid = -1;
-				}	// if ButtonPress
+						if (ev.type == UnmapNotify && ev.xany.window == bat[i].win) {
+							embed_window(bat[i].win);
+							break;
+						}
+						else if (ev.type == ButtonPress && ev.xany.window == bat[i].win) {
+							XButtonEvent* xbv = (XButtonEvent*) &ev;
+								if (xbv->button == 1) 
+									bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
+								else
+									batterystatusid = i;							
+							break;
+						}	// else if ButtonPress
+					}	// for each bat[]
+				}	// if ev.type is something we want to deal with
 			}	// while XPending
+		rescan();
+		batterystatusid = -1;
 		}	// if pfd[1]
-
-	}	// while
+	}	// while running
 	
 	// Cleanup
 	udev_unref(udev);

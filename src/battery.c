@@ -1,3 +1,4 @@
+
 /**********************************************************************\
 * BATTERY.C - module for BLUEPLATE
 r*
@@ -34,7 +35,7 @@ static int xlib_init() {
 	init_atoms();
 	XSetWindowAttributes wa;
 	wa.backing_store = Always;
-	wa.event_mask = StructureNotifyMask;
+	wa.event_mask = StructureNotifyMask | ExposureMask | ButtonPressMask;
 	
 	int i;
 	for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {
@@ -47,8 +48,8 @@ static int xlib_init() {
 	val.background = background;
 	val.fill_style = FillSolid;
 	bat[i].gc = XCreateGC(dpy, bat[i].win, GCForeground | GCBackground | GCFillStyle, &val);	
-	
-	XSelectInput (dpy, bat[i].win, ExposureMask | ButtonPressMask); 
+
+	XSelectInput (dpy, root, PropertyChangeMask);
 	}
 
 return 0;
@@ -235,7 +236,7 @@ static int rescan() {
 		float e_full = 0.0;
 		float e_now = 0.0;
 		const char* pchar;
-		
+	
 		// Match batteries in device list with icons
 		if (i < n_bat) {	
 			udev_list_entry_foreach(dev_list_entry, devices) {
@@ -259,7 +260,7 @@ static int rescan() {
 			udev_device_unref(dev);
 			}	// foreach dev_list_entry in devices
 		}	// if (j < n_bat)
-					
+				
 		// prepare the icons				
 		if (batt) {
 			show |= (1<<i);			
@@ -309,22 +310,28 @@ static int rescan() {
 				
 			XClearWindow(dpy, bat[i].win);
 			XSetWindowBackgroundPixmap(dpy, bat[i].win, pix);
+			XRaiseWindow(dpy, bat[i].win);
 			XFreePixmap(dpy, pix);
-			embed_window(bat[i].win);
 		}	// if batt
 		
-		else {							
-			show &= ~(1<<i);
-			XUnmapWindow(dpy, bat[i].win);
-			XReparentWindow(dpy, bat[i].win, root, 0, 0);
-		}	// else
-		
+		else show &= ~(1<<i);
 	}	// for each icon
+	
+	// correct window mappings based on number of icons to show
+	if (show != prev) {
+		for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {	
+			if (i < show ) embed_window(bat[i].win);
+			else 	{
+				XUnmapWindow(dpy, bat[i].win);
+				XReparentWindow(dpy, bat[i].win, root, 0, 0);
+			}	// else
+		}	// if
+	}	// if show != prev
 	
 	// Cleanup, refresh icons if necessary and return
 	udev_enumerate_unref(enumerate);
 	udev_unref(udev);
-	if (show != prev) XFlush(dpy);
+	XFlush(dpy);
 	return 0;		
 }
 
@@ -393,24 +400,28 @@ int battery() {
 		else if (pfd[1].revents & POLLIN) {
 			while (XPending(dpy)) {
 				XNextEvent(dpy, &ev);
-				if (ev.type == ButtonPress) {
-					XButtonEvent* xbv = (XButtonEvent*) &ev;
-					int i;
-					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {
-						if (xbv->window == bat[i].win ) {
-							if (xbv->button == 1 && connman_click[0])
-								bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
-							else	
-								batterystatusid = i;
-						}	// if
-					}	// for each bat[i]
-					rescan();
-					batterystatusid = -1;
-				}	// if ButtonPress
+				int i;
+				if (ev.type == UnmapNotify || ev.type == ButtonPress) {
+					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {	
+						if (ev.type == UnmapNotify && ev.xany.window == bat[i].win) {
+							embed_window(bat[i].win);
+							break;
+						}
+						else if (ev.type == ButtonPress && ev.xany.window == bat[i].win) {
+							XButtonEvent* xbv = (XButtonEvent*) &ev;
+								if (xbv->button == 1) 
+									bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
+								else
+									batterystatusid = i;							
+							break;
+						}	// else if ButtonPress
+					}	// for each bat[]
+				}	// if ev.type is something we want to deal with
 			}	// while XPending
+		rescan();
+		batterystatusid = -1;
 		}	// if pfd[1]
-
-	}	// while
+	}	// while running
 	
 	// Cleanup
 	udev_unref(udev);

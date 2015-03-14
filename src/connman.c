@@ -6,8 +6,18 @@
 \**********************************************************************/
 
 /*
- *  This is at variance with the master branch as follows:
- * 	cmst branch uses poll() in lieu of select.
+ *  Suggested improvements (from J. McClure AKA "Trilby"): (see connman_new.c)
+ *
+ *  1. Replace the nonblocking read with dbus_connection_read_write_dispatch or
+ *     similar function to avoid the "sleep-loop" syndrome. (done ajb, 31 jan 15)
+ *  2. Remove the pthread dependence by using DBusWatch and a select loop.(done ajb 31 Jan 15)
+ *  3. Use array for gcs and color configs.  Initialization can then be done in
+ *     a loop through all possible conditionals allowing easier additions in the
+ *     future.
+ *  4. Consider drawing to pixmap and setting as window background rather than
+ *     drawing directly to the window.  This way the expose event can be ignored
+ *     as backingstore is already set.
+ *  5. Clean up main loop (done: Trilby, 19 Jan 2015)
  */
 
 #include "blueplate.h"
@@ -15,7 +25,6 @@
 
 #include <dbus/dbus.h>
 #include <stdbool.h>
-#include <poll.h>
 
 enum {
 	// how to draw the rectangles
@@ -31,8 +40,6 @@ enum {
 	
 };	// enum
 
-
-
 // Variables
 static Window bars;
 GC gc_undefined, gc_offline, gc_idle, gc_ready, gc_online;
@@ -47,8 +54,6 @@ const char *rule = "eavesdrop=true,type='signal',interface='net.connman.Manager'
 // Function to draw a single bar
 static int draw_bar (int start, GC* gc, int type)
 {
-	const short bar_height = 3 * bar_width + 2 * bar_gap;
-	
 	switch (type) {
 		case Hollow: 
 			XDrawRectangle(dpy, bars, *gc, start * (bar_width + bar_gap), 0, bar_width - 1, bar_height - 1);
@@ -111,7 +116,7 @@ static int xlib_init() {
 	XSetWindowAttributes wa;
 	wa.backing_store = Always;
 	wa.background_pixel = background;
-	wa.event_mask = StructureNotifyMask | ExposureMask | ButtonPressMask;
+	wa.event_mask = StructureNotifyMask | ExposureMask;
 	bars = XCreateWindow(dpy, root, 0, 0, 22, 22, 0, DefaultDepth(dpy,scr),
 			InputOutput, DefaultVisual(dpy, scr),
 			CWBackPixel | CWBackingStore | CWEventMask, &wa);
@@ -134,7 +139,7 @@ static int xlib_init() {
 	val.foreground = conn_online;
 	gc_online = XCreateGC(dpy, bars, GCForeground | GCBackground, &val);	
 	
-	XSelectInput (dpy, root, PropertyChangeMask);
+	XSelectInput (dpy, bars, ExposureMask | ButtonPressMask); 
 }
 
 // DBus watch functions
@@ -305,9 +310,11 @@ void getState()
 int connman() {
 	xlib_init();
 	XEvent ev;
+	embed_window(bars);
 	fd_set fds;
 	int xfd = ConnectionNumber(dpy);	// file descriptor for xlib
-	struct pollfd pfd[2];						// poll fd structure
+	int nfd;													// number of file descriptors
+	int ret;													// return value
 	
 	// initialise the dbus errors
 	dbus_error_init(&err);
@@ -340,51 +347,61 @@ int connman() {
 		fprintf (stderr, "Couldn't add filter\n");
 		exit (3);
 	}
-	
-	// Poll structures 
-	pfd[0].fd = xfd;
-	pfd[0].events = POLLIN;
-	if (wfd) {
-		pfd[1].fd = wfd;
-		pfd[1].events = POLLIN;
-	}
+		
 	// Get the current connection state
 	getState();	
 		
 	// Main loop
-	embed_window(bars);
-	redraw();
-	while (running && poll(pfd, sizeof(pfd) / sizeof(pfd[0]), -1) ) {
-	
+	while (running) {
+		// Initialize the file descriptor set, must be done after every select()
+		FD_ZERO(&fds);
+		FD_SET(xfd, &fds);
+		if (wfd) FD_SET(wfd, &fds);
+		nfd = (wfd > xfd ? wfd : xfd) + 1;
+		redraw();
+		
+		// select() blocks until one of the file descriptors needs attention
+		ret = select(nfd, &fds, 0, 0, NULL);
+		
 		// if dbus watch needs attention
-		if (pfd[1].revents & POLLIN) {
+		if (wfd && FD_ISSET(wfd, &fds)) {
 			dbus_watch_handle(w, DBUS_WATCH_READABLE);
 			while (dbus_connection_dispatch(conn) != DBUS_DISPATCH_COMPLETE) { 
 			}	// while dispatch not complete
 		}	// if wfd
 		
 		// if xevents need attention
-		if (pfd[0].revents & POLLIN) while (XPending(dpy)) {
+		if (FD_ISSET(xfd, &fds)) while (XPending(dpy)) {
 			XNextEvent(dpy, &ev);
-			if (ev.xany.window == bars && ev.type == UnmapNotify) embed_window(bars);
 			// left button open connman_click[0], any other button close
-			else if (ev.type == ButtonPress) {
+			if (ev.type == ButtonPress) {
 				XButtonEvent* xbv = (XButtonEvent*) &ev;
 				if (xbv->button == 1 && connman_click[0]) {
+					// use a double fork to avoid creating a zombie process
 					pid_t pid1;
+					pid_t pid2;
+					int status;
 					if ( (pid1 = fork()) < 0 )
 						fprintf (stderr, "Couldn't fork the a child process to execute %s\n", connman_click[0]);
-					else {
-						if (pid1 == 0)
-							execvp(connman_click[0], (char * const *) connman_click);
-					}	// else we could fork
+					else if (pid1 == 0) {
+						struct sigaction sa;
+						sa.sa_handler = SIG_DFL;
+						sigemptyset(&sa.sa_mask);
+						sigaction(SIGTERM, &sa, NULL);
+						XCloseDisplay(dpy);
+						fclose(stdin);
+						fclose(stdout);
+						fclose(stderr);
+						execvp(connman_click[0], (char * const *) connman_click);
+					}
+					else
+						waitpid(pid1, NULL, WNOHANG);
 				}	// if button 1
 				else running = FALSE;
-			}	// if button press	
-		}	// while xpending
-		
-		redraw();
-	}	// while running
+			}	// if button press			
+		}	// if xfd
+	}	// whle running
+	
 	xlib_free();
 	return 0;
 }

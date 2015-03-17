@@ -81,7 +81,7 @@ static const XRectangle battery_fill_rect = {3, 2, 7, 10};
 // or an integer between 0 and 100 representing the percent of charge to
 // trigger notifications. This variable may be supplied even if there is
 // no notification server running on your machine.
-static short notification_trigger = 10;
+static short notification_trigger = 20;
 
 // 13x13 battery (hollow) icon
 static const XPoint battery_icon_size = { 13, 13 };

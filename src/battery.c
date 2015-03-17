@@ -416,10 +416,10 @@ int battery() {
 							break;
 						}	// else if ButtonPress
 					}	// for each bat[]
+					rescan();
+					batterystatusid = -1;
 				}	// if ev.type is something we want to deal with
 			}	// while XPending
-		rescan();
-		batterystatusid = -1;
 		}	// if pfd[1]
 	}	// while running
 	

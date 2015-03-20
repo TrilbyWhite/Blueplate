@@ -27,8 +27,7 @@ enum {
 // global variables
 static short batterystatusid = -1;
 
-
-static int xlib_init() {
+static int xlib_init() {	
 	if (!(dpy=XOpenDisplay(0x0))) return 1;
 	root = DefaultRootWindow(dpy);
 	int scr = DefaultScreen(dpy);
@@ -309,14 +308,14 @@ static int rescan() {
 			}	// else discharging	
 				
 			XClearWindow(dpy, bat[i].win);
-			XSetWindowBackgroundPixmap(dpy, bat[i].win, pix);
-			XRaiseWindow(dpy, bat[i].win);
+			XCopyArea(dpy, pix, bat[i].win, bat[i].gc, 0, 0,  battery_icon_size.x, battery_icon_size.y, 0, 0);  
+			XFlush(dpy);
 			XFreePixmap(dpy, pix);
 		}	// if batt
 		
 		else show &= ~(1<<i);
 	}	// for each icon
-	
+		
 	// correct window mappings based on number of icons to show
 	if (show != prev) {
 		for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {	
@@ -331,7 +330,6 @@ static int rescan() {
 	// Cleanup, refresh icons if necessary and return
 	udev_enumerate_unref(enumerate);
 	udev_unref(udev);
-	XFlush(dpy);
 	return 0;		
 }
 
@@ -401,10 +399,13 @@ int battery() {
 			while (XPending(dpy)) {
 				XNextEvent(dpy, &ev);
 				int i;
-				if (ev.type == UnmapNotify || ev.type == ButtonPress) {
+				if (ev.type == UnmapNotify || ev.type == Expose || ev.type == ButtonPress) {
 					for (i = 0; i < sizeof(bat)/sizeof(bat[0]); ++i) {	
 						if (ev.type == UnmapNotify && ev.xany.window == bat[i].win) {
 							embed_window(bat[i].win);
+							break;
+						}
+						if (ev.type == Expose && ev.xany.window == bat[i].win) {
 							break;
 						}
 						else if (ev.type == ButtonPress && ev.xany.window == bat[i].win) {

@@ -1,4 +1,3 @@
-
 /**********************************************************************\
 * BATTERY.C - module for BLUEPLATE
 r*
@@ -259,7 +258,7 @@ static int rescan() {
 			udev_device_unref(dev);
 			}	// foreach dev_list_entry in devices
 		}	// if (j < n_bat)
-				
+							
 		// prepare the icons				
 		if (batt) {
 			show |= (1<<i);			
@@ -340,6 +339,7 @@ int battery() {
 	struct pollfd pfd[2];
 	int mfd;		// monitor file descriptor	
 	const int timeout = 5 * 60 * 1000;	// interval to check battery if nothing else has occured (milliseconds)
+	const uint statemask = (1 << 2);	// (shift << 0, ctrl << 2, alt << 3)  
 
 	// initialise the dbus errors
 	dbus_error_init(&err);
@@ -410,10 +410,12 @@ int battery() {
 						}
 						else if (ev.type == ButtonPress && ev.xany.window == bat[i].win) {
 							XButtonEvent* xbv = (XButtonEvent*) &ev;
-								if (xbv->button == 1) 
-									bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
-								else
-									batterystatusid = i;							
+							if (xbv->button == 1 && (xbv->state & statemask) )
+								running = FALSE;
+							else if (xbv->button == 1) 
+								bat[i].health = (bat[i].health == Health_No ? Health_Yes : Health_No);
+							else
+								batterystatusid = i;							
 							break;
 						}	// else if ButtonPress
 					}	// for each bat[]
